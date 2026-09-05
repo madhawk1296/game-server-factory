@@ -1,0 +1,62 @@
+#cloud-config
+package_update: true
+
+apt:
+  sources:
+    docker.list:
+      source: "deb [arch=$ARCH signed-by=$KEY_FILE] https://download.docker.com/linux/ubuntu $RELEASE stable"
+      keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+
+packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+
+write_files:
+  # Docker's entire data-root lives on the attached block volume, so every named
+  # volume the worlds module creates lands on durable storage without the module
+  # knowing anything about it. Replace the droplet, reattach, and the worlds are
+  # still there -- the same cattle/pet split as local, one layer down.
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      {
+        "data-root": "/mnt/docker",
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "3" }
+      }
+
+  - path: /usr/local/sbin/mount-docker-volume
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      DEV="${volume_device}"
+
+      for _ in $(seq 1 60); do
+        if [ -e "$DEV" ]; then break; fi
+        sleep 5
+      done
+      if [ ! -e "$DEV" ]; then
+        echo "block volume never appeared at $DEV" >&2
+        exit 1
+      fi
+
+      # Only format a blank volume. Never reformat one holding worlds.
+      if ! blkid "$DEV" >/dev/null 2>&1; then
+        mkfs.ext4 -L mcdata "$DEV"
+      fi
+
+      mkdir -p /mnt/docker
+      if ! grep -q " /mnt/docker " /etc/fstab; then
+        echo "$DEV /mnt/docker ext4 discard,nofail,defaults 0 2" >> /etc/fstab
+      fi
+      mount -a
+
+runcmd:
+  # Mount before Docker's first start, so it never initialises a data-root on
+  # the ephemeral root disk and then get confused when the real one appears.
+  - systemctl stop docker || true
+  - /usr/local/sbin/mount-docker-volume
+  - systemctl enable --now docker
+  - docker info --format 'data-root={{.DockerRootDir}}'
