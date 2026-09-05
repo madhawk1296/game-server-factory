@@ -1,5 +1,14 @@
 locals {
   backups_root = abspath("${path.root}/backups")
+
+  # One source of truth for memory: the map states the container ceiling, the
+  # heap is computed from it. Setting both by hand is the classic way to ship a
+  # server that runs fine for a week and then gets OOM-killed under load.
+  #
+  # Note the heap is sized so RSS lands just under the limit by design, so high
+  # utilisation percentages here are expected, not a warning sign. The number
+  # that matters is absolute slack, not percent.
+  heap_mb = { for k, v in var.servers : k => v.memory_mb - var.jvm_overhead_mb }
 }
 
 resource "random_password" "rcon" {
@@ -45,11 +54,23 @@ resource "docker_container" "mc" {
   tty                   = true
   destroy_grace_seconds = 120
 
+  # Memory is a hard ceiling: it is the scarce, non-shareable resource, and it
+  # is what a host actually sells. memory_swap set equal to memory disables swap
+  # entirely -- a swapping Minecraft server does not slow down gracefully, it
+  # stutters, because the tick loop cannot wait on disk.
+  memory      = each.value.memory_mb
+  memory_swap = each.value.memory_mb
+
+  # CPU is a *weight*, not a cap. A hard quota would throttle the tick loop and
+  # show up as lag even when the host is idle. Shares only matter under
+  # contention, which is exactly when you want fairness.
+  cpu_shares = each.value.cpu_shares
+
   env = [
     "EULA=TRUE",
     "TYPE=${each.value.type}",
     "VERSION=${each.value.version}",
-    "MEMORY=${each.value.memory}",
+    "MEMORY=${local.heap_mb[each.key]}M",
     "USE_AIKAR_FLAGS=true",
     "MOTD=${each.value.motd}",
     "DIFFICULTY=${each.value.difficulty}",
@@ -74,6 +95,13 @@ resource "docker_container" "mc" {
     name    = docker_network.mc.name
     aliases = ["mc-${each.key}"]
   }
+
+  lifecycle {
+    precondition {
+      condition     = each.value.memory_mb >= var.jvm_overhead_mb + 512
+      error_message = "World '${each.key}': memory_mb (${each.value.memory_mb}) leaves less than 512 MB of heap after the ${var.jvm_overhead_mb} MB JVM reserve. Raise memory_mb."
+    }
+  }
 }
 
 resource "docker_container" "backup" {
@@ -82,6 +110,9 @@ resource "docker_container" "backup" {
   name    = "mc-${each.key}-backup"
   image   = docker_image.backup.image_id
   restart = "unless-stopped"
+
+  memory      = 256
+  memory_swap = 256
 
   env = [
     "BACKUP_INTERVAL=${var.backup_interval}",
@@ -115,6 +146,11 @@ resource "docker_container" "router" {
   name    = "mc-router"
   image   = docker_image.router.image_id
   restart = "unless-stopped"
+
+  # Small, but it must never be the thing that gets squeezed -- if the router
+  # dies every world becomes unreachable at once.
+  memory      = 128
+  memory_swap = 128
 
   # Terraform already knows every world, so it renders the routing table
   # directly. The alternative -- --in-docker label discovery -- needs the Docker
