@@ -83,10 +83,14 @@ if [ "${1:-}" = "--full" ]; then
   head_ "Server is disposable (v0)"
   docker exec -i mc-smp rcon-cli setblock 0 101 0 minecraft:emerald_block >/dev/null
   old=$(docker inspect -f '{{.Id}}' mc-smp)
-  terraform apply -replace='docker_container.mc["smp"]' -auto-approve -no-color >/dev/null 2>&1
+  terraform apply -replace='module.worlds.docker_container.mc["smp"]' -auto-approve -no-color >/dev/null 2>&1
   for _ in $(seq 1 60); do docker logs mc-smp 2>&1 | grep -q 'Done (' && break; sleep 3; done
   new=$(docker inspect -f '{{.Id}}' mc-smp)
-  [ "$old" != "$new" ] && ok "container was genuinely replaced" || bad "container not replaced"
+  if [ "$old" != "$new" ]; then
+    ok "container was genuinely replaced"
+  else
+    bad "container not replaced -- the survival check below is meaningless"
+  fi
   docker exec -i mc-smp rcon-cli forceload add 0 0 >/dev/null 2>&1
   check "unsaved block survived replacement" \
     "$(docker exec -i mc-smp rcon-cli execute if block 0 101 0 minecraft:emerald_block)" "Test passed"
