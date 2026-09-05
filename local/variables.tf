@@ -56,6 +56,18 @@ variable "servers" {
   }
 }
 
+variable "world_domain" {
+  description = <<-EOT
+    Suffix for each world's routable hostname: <world>.<world_domain>.
+
+    Locally this needs matching /etc/hosts entries, since nothing resolves
+    *.mc.localhost. At v2 this becomes a real domain with a wildcard A record
+    and the routing stops needing any client-side setup.
+  EOT
+  type        = string
+  default     = "mc.localhost"
+}
+
 variable "jvm_overhead_mb" {
   description = <<-EOT
     RAM reserved above the heap, per world. Heap = memory_mb - this.

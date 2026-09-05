@@ -9,6 +9,10 @@ locals {
   # utilisation percentages here are expected, not a warning sign. The number
   # that matters is absolute slack, not percent.
   heap_mb = { for k, v in var.servers : k => v.memory_mb - var.jvm_overhead_mb }
+
+  # The routing table, rendered from the same map that defines the worlds. One
+  # source of truth: a world cannot exist without a route, or keep a stale one.
+  routes = { for k, v in var.servers : "${k}.${var.world_domain}" => "mc-${k}:25565" }
 }
 
 resource "random_password" "rcon" {
@@ -159,7 +163,7 @@ resource "docker_container" "router" {
   # the privilege for a table we can generate deterministically.
   command = [
     "--mapping",
-    join(",", [for k, v in var.servers : "${k}.mc.localhost=mc-${k}:25565"]),
+    join(",", [for host, backend in local.routes : "${host}=${backend}"]),
   ]
 
   ports {
