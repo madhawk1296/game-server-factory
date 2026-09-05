@@ -10,9 +10,16 @@ locals {
   # that matters is absolute slack, not percent.
   heap_mb = { for k, v in var.servers : k => v.memory_mb - var.jvm_overhead_mb }
 
+  # Only running worlds get containers and routes. Volumes and RCON passwords
+  # are keyed off the full map, so a stopped world keeps its data and its
+  # identity -- and, critically, removing a container never plans a volume
+  # destroy. prevent_destroy has to be a literal, so the guard cannot be
+  # relaxed per-world; the fan-out must simply never ask to delete a volume.
+  running = { for k, v in var.servers : k => v if v.state == "running" }
+
   # The routing table, rendered from the same map that defines the worlds. One
   # source of truth: a world cannot exist without a route, or keep a stale one.
-  routes = { for k, v in var.servers : "${k}.${var.world_domain}" => "mc-${k}:25565" }
+  routes = { for k, v in local.running : "${k}.${var.world_domain}" => "mc-${k}:25565" }
 }
 
 resource "random_password" "rcon" {
@@ -49,7 +56,7 @@ resource "docker_volume" "world" {
 }
 
 resource "docker_container" "mc" {
-  for_each = var.servers
+  for_each = local.running
 
   name                  = "mc-${each.key}"
   image                 = docker_image.mc.image_id
@@ -114,7 +121,7 @@ resource "docker_container" "mc" {
 }
 
 resource "docker_container" "backup" {
-  for_each = var.servers
+  for_each = local.running
 
   name    = "mc-${each.key}-backup"
   image   = docker_image.backup.image_id

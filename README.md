@@ -59,6 +59,55 @@ Connect directly at `localhost:25566`, or through the router at
 127.0.0.1  smp.mc.localhost creative.mc.localhost
 ```
 
+### World lifecycle and decommissioning
+
+A world has a `state`, and it is not the same thing as existing:
+
+```hcl
+creative = { state = "stopped", memory_mb = 2048 }
+```
+
+`stopped` destroys the container and its backup sidecar, frees the memory, and
+drops the route -- while keeping the volume, the RCON password, and the map
+entry. The world still exists; it is not running. Flip it back to `running` and
+it returns with its data intact.
+
+This is the mothballing mode, and on the cloud it is what takes a world's cost
+down to just its volume.
+
+**Deleting a world is deliberately not a config edit.** The volume carries
+`lifecycle.prevent_destroy`, which Terraform requires to be a literal -- it
+cannot be relaxed per-world. So removing a map entry outright does not delete a
+world, it aborts the entire plan, including unrelated changes to every other
+world. That is the guard working, not a bug.
+
+To actually retire a world, in this order:
+
+```bash
+# 1. While it is still RUNNING, take a final backup and get it off the host.
+docker exec -i mc-<name> rcon-cli save-all
+cp local/backups/<name>/*.tar.gz ~/somewhere-safe/
+
+# 2. Stop it, and leave it stopped long enough to be sure nobody wants it.
+#    state = "stopped" in the map, then apply.
+
+# 3. Tell Terraform to forget the volume. Nothing is deleted by this.
+terraform state rm 'docker_volume.world["<name>"]'
+
+# 4. Now remove the map entry and apply. Clean, because the volume is no
+#    longer in state, so no destroy is planned.
+
+# 5. Finally, delete the data for real.
+docker volume rm mc-<name>-data
+```
+
+Step 1 comes first because the backup sidecar is torn down by step 2 -- once a
+world is stopped, nothing is taking backups of it any more.
+
+Steps 3 and 5 each name the world explicitly on the command line. That friction
+is the point: destroying player data should take two deliberate commands, never
+be a side effect of editing a map.
+
 ### What carries over to the cloud
 
 Everything that matters, as it turns out: the `for_each` factory pattern, the

@@ -1,6 +1,6 @@
 output "direct" {
   description = "Worlds with a published host port. Others are router-only."
-  value       = { for k, v in var.servers : k => "localhost:${v.port}" if v.port != null }
+  value       = { for k, v in local.running : k => "localhost:${v.port}" if v.port != null }
 }
 
 output "via_router" {
@@ -11,6 +11,11 @@ output "via_router" {
 output "etc_hosts_line" {
   description = "Paste into /etc/hosts so a real client can resolve these names."
   value       = "127.0.0.1 ${join(" ", keys(local.routes))}"
+}
+
+output "stopped" {
+  description = "Worlds that exist but are not running. Data retained, memory freed."
+  value       = [for k, v in var.servers : k if v.state != "running"]
 }
 
 output "rcon_passwords" {

@@ -32,6 +32,12 @@ variable "servers" {
     # Relative CPU weight, not a cap. See the note in main.tf.
     cpu_shares = optional(number, 1024)
 
+    # Lifecycle, not deletion. "stopped" tears down the container and frees its
+    # memory while keeping the volume and the map entry -- the world still
+    # exists, it just is not running. Removing the entry entirely is a separate,
+    # deliberate act; see the decommissioning runbook in the README.
+    state = optional(string, "running")
+
     type       = optional(string, "PAPER")
     version    = optional(string, "LATEST")
     motd       = optional(string, "Local dev world")
@@ -39,6 +45,11 @@ variable "servers" {
     difficulty = optional(string, "normal")
     ops        = optional(list(string), [])
   }))
+
+  validation {
+    condition     = alltrue([for v in var.servers : contains(["running", "stopped"], v.state)])
+    error_message = "state must be \"running\" or \"stopped\"."
+  }
 
   validation {
     condition = length([for v in var.servers : v.port if v.port != null]) == length(
