@@ -1,22 +1,17 @@
 #cloud-config
 package_update: true
 
-apt:
-  sources:
-    docker.list:
-      source: "deb [arch=$ARCH signed-by=$KEY_FILE] https://download.docker.com/linux/ubuntu $RELEASE stable"
-      keyid: 9DC858229FC7DD38854AE2D88D81803C0EBFCD88
-
+# Only what ships in Ubuntu's own repos. Docker's repo is added later by a
+# script, because cloud-init's apt module fetches keys from keyserver.ubuntu.com
+# and a keyserver failure aborts the whole apt phase -- taking the package
+# installs down with it. Docker's documented install pulls the key over HTTPS.
 packages:
-  - docker-ce
-  - docker-ce-cli
-  - containerd.io
+  - ca-certificates
+  - curl
 
 write_files:
-  # Docker's entire data-root lives on the attached block volume, so every named
-  # volume the worlds module creates lands on durable storage without the module
-  # knowing anything about it. Replace the droplet, reattach, and the worlds are
-  # still there -- the same cattle/pet split as local, one layer down.
+  # Written before Docker is installed, so the daemon never initialises a
+  # data-root on the ephemeral disk and then has to be migrated.
   - path: /etc/docker/daemon.json
     permissions: "0644"
     content: |
@@ -26,7 +21,7 @@ write_files:
         "log-opts": { "max-size": "10m", "max-file": "3" }
       }
 
-  - path: /usr/local/sbin/mount-docker-volume
+  - path: /usr/local/sbin/prepare-docker-storage
     permissions: "0755"
     content: |
       #!/bin/bash
@@ -42,6 +37,15 @@ write_files:
         exit 1
       fi
 
+      # DigitalOcean automounts attached volumes at /mnt/<name>. Take the device
+      # over rather than fight it -- a second mount of a busy device is what
+      # silently failed last time.
+      CUR=$(findmnt -n -o TARGET --source "$DEV" 2>/dev/null | head -1 || true)
+      if [ -n "$CUR" ] && [ "$CUR" != "/mnt/docker" ]; then
+        echo "releasing DigitalOcean automount at $CUR"
+        umount "$CUR"
+      fi
+
       # Only format a blank volume. Never reformat one holding worlds.
       if ! blkid "$DEV" >/dev/null 2>&1; then
         mkfs.ext4 -L mcdata "$DEV"
@@ -51,12 +55,25 @@ write_files:
       if ! grep -q " /mnt/docker " /etc/fstab; then
         echo "$DEV /mnt/docker ext4 discard,nofail,defaults 0 2" >> /etc/fstab
       fi
-      mount -a
+      findmnt -n /mnt/docker >/dev/null 2>&1 || mount /mnt/docker
+      findmnt -n /mnt/docker
+
+  - path: /usr/local/sbin/install-docker
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+      . /etc/os-release
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $VERSION_CODENAME stable" \
+        > /etc/apt/sources.list.d/docker.list
+      apt-get update -y
+      DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io
 
 runcmd:
-  # Mount before Docker's first start, so it never initialises a data-root on
-  # the ephemeral root disk and then get confused when the real one appears.
-  - systemctl stop docker || true
-  - /usr/local/sbin/mount-docker-volume
+  - /usr/local/sbin/prepare-docker-storage
+  - /usr/local/sbin/install-docker
   - systemctl enable --now docker
   - docker info --format 'data-root={{.DockerRootDir}}'
