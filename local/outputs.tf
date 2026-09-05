@@ -1,6 +1,6 @@
 output "direct" {
-  description = "Connect straight to a world, no DNS needed."
-  value       = { for k, v in var.servers : k => "localhost:${v.port}" }
+  description = "Worlds with a published host port. Others are router-only."
+  value       = { for k, v in var.servers : k => "localhost:${v.port}" if v.port != null }
 }
 
 output "via_router" {

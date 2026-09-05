@@ -85,10 +85,14 @@ resource "docker_container" "mc" {
     "TZ=UTC",
   ]
 
-  # Direct port too, so you can connect without touching /etc/hosts.
-  ports {
-    internal = 25565
-    external = each.value.port
+  # Published only when the map asks for it. Most worlds should not be: every
+  # published port is exposed surface that the router already covers.
+  dynamic "ports" {
+    for_each = each.value.port == null ? [] : [each.value.port]
+    content {
+      internal = 25565
+      external = ports.value
+    }
   }
 
   volumes {

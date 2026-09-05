@@ -17,7 +17,12 @@ variable "servers" {
   EOT
 
   type = map(object({
-    port = number
+    # Optional, and normally omitted. A world only needs a published host port
+    # if you want to reach it without going through the router -- debugging, or
+    # a client that cannot resolve the routed hostname. Leaving it null means
+    # the world is reachable only via <name>.<world_domain> on the router's
+    # single port, which is the production posture: one exposed port total.
+    port = optional(number)
 
     # What the world is *sold*: the container's hard RAM ceiling, the way a real
     # host quotes it. The JVM heap is derived from this via var.heap_fraction.
@@ -35,18 +40,34 @@ variable "servers" {
     ops        = optional(list(string), [])
   }))
 
+  validation {
+    condition = length([for v in var.servers : v.port if v.port != null]) == length(
+      distinct([for v in var.servers : v.port if v.port != null])
+    )
+    error_message = "Two worlds share a published host port. Ports are an allocation, not a derived value -- assign each one explicitly and uniquely."
+  }
+
+  validation {
+    condition     = alltrue([for v in var.servers : v.port == null || (try(v.port, 0) >= 1024 && try(v.port, 0) <= 65535)])
+    error_message = "Published ports must be between 1024 and 65535."
+  }
+
+  validation {
+    condition     = alltrue([for v in var.servers : v.port != 25565])
+    error_message = "25565 belongs to mc-router. A world published there would collide with the router and break every other world."
+  }
+
   # Budget check before adding a world: the Docker VM has ~7.6 GB, and each
   # world costs memory_mb plus 256 MB for its backup sidecar.
   default = {
     smp = {
-      port      = 25566
+      port      = 25566 # kept published as the escape hatch; creative is router-only
       memory_mb = 3072
       motd      = "Survival"
       ops       = ["madhawk1296"]
     }
 
     creative = {
-      port       = 25567
       memory_mb  = 2048
       motd       = "Creative build server"
       gamemode   = "creative"
