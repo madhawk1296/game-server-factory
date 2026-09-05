@@ -103,6 +103,29 @@ docker exec mc-smp-backup restic restore latest --target /tmp/r
 Restore has been tested, not assumed: a snapshot restored 401 files including
 `level.dat` and the region files. An untested backup is not a backup.
 
+### Testing
+
+```bash
+cd local
+./test.sh          # 21 non-destructive checks
+./test.sh --full   # 28 checks, including a container replace and a stop/start cycle
+```
+
+`--full` deliberately mutates: it replaces smp's container to prove the world
+survives, and edits `variables.tf` to stop and restart creative, restoring the
+file afterwards via a trap. Do not run it while anyone is playing.
+
+What it cannot check is the part that needs a human: that two clients on two
+worlds genuinely cannot see each other, and that the routed hostnames work in
+the real launcher rather than only in the protocol prober. For that:
+
+```bash
+echo "$(cd local && terraform output -raw etc_hosts_line)" | sudo tee -a /etc/hosts
+```
+
+Then add both `smp.mc.localhost` and `creative.mc.localhost` in Minecraft --
+no port -- and confirm you arrive in different worlds with separate inventories.
+
 ### World lifecycle and decommissioning
 
 A world has a `state`, and it is not the same thing as existing:
