@@ -134,12 +134,21 @@ variable "backup_initial_delay" {
 }
 
 variable "backup_s3" {
-  description = "S3-compatible destination for restic. Required -- the module does not run an object store."
+  description = <<-EOT
+    S3-compatible destination for restic. The module does not run an object
+    store; the caller supplies one.
+
+    null disables backups entirely -- no sidecars are created. That is a real
+    choice with a real consequence, not a default to drift into: nothing is
+    protecting these worlds. Fine while proving a deployment works, wrong the
+    moment anyone builds something they would miss.
+  EOT
   type = object({
     endpoint   = string
     bucket     = string
     access_key = string
     secret_key = string
   })
+  default   = null
   sensitive = true
 }

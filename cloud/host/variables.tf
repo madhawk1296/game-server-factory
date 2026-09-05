@@ -1,3 +1,14 @@
+variable "do_token" {
+  description = <<-EOT
+    DigitalOcean API token. Leave null to use the DIGITALOCEAN_TOKEN
+    environment variable instead; set it in terraform.tfvars (gitignored) if
+    you would rather not keep a credential in your shell profile.
+  EOT
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
 variable "name" {
   description = "Name prefix for the droplet, volume, and firewall."
   type        = string

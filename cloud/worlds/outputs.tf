@@ -8,6 +8,11 @@ output "etc_hosts_line" {
   value       = "${data.terraform_remote_state.host.outputs.ipv4_address} ${join(" ", keys(module.worlds.routes))}"
 }
 
+output "backups" {
+  description = "Whether anything is protecting these worlds."
+  value       = module.worlds.backups_enabled ? "enabled" : "DISABLED - no backups exist for these worlds"
+}
+
 output "stopped" {
   value = module.worlds.stopped
 }

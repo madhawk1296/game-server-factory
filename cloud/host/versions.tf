@@ -9,5 +9,7 @@ terraform {
   }
 }
 
-# Token comes from the DIGITALOCEAN_TOKEN environment variable.
-provider "digitalocean" {}
+# Reads DIGITALOCEAN_TOKEN from the environment when do_token is null.
+provider "digitalocean" {
+  token = var.do_token
+}

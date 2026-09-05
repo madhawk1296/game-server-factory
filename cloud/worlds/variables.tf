@@ -31,13 +31,13 @@ variable "world_domain" {
 
 variable "backup_s3" {
   description = <<-EOT
-    Required here, unlike the local stack. A cloud host with no backups is the
-    exact failure this project is meant to avoid, and there is no MinIO
-    stand-in on a real machine -- an object store sharing the host it protects
-    is not a backup.
+    Leave null to deploy without backups -- fine for proving the host works,
+    wrong once anyone builds something they would miss. There is deliberately no
+    MinIO stand-in here: an object store sharing the machine it protects is not
+    a backup, and a fake one is worse than an obvious absence.
 
-    Cloudflare R2 is free below 10 GB and has no egress fees, which is what you
-    care about on the day you restore.
+    Cloudflare R2 is free below 10 GB with no egress fees, which is what you
+    care about on the day you actually restore. That is the v2.3 step.
   EOT
   type = object({
     endpoint   = string
@@ -45,6 +45,7 @@ variable "backup_s3" {
     access_key = string
     secret_key = string
   })
+  default   = null
   sensitive = true
 }
 

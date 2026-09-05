@@ -11,6 +11,11 @@ locals {
   running = { for k, v in var.servers : k => v if v.state == "running" }
 
   routes = { for k, v in local.running : "${k}.${var.world_domain}" => "mc-${k}:25565" }
+
+  # Whether a destination is configured is not the secret -- its credentials
+  # are. for_each rejects anything derived from a sensitive value, so unwrap
+  # just the boolean.
+  backups_enabled = nonsensitive(var.backup_s3 != null)
 }
 
 resource "random_password" "rcon" {
@@ -117,7 +122,9 @@ resource "docker_container" "mc" {
 }
 
 resource "docker_container" "backup" {
-  for_each = local.running
+  # No destination, no sidecars. Better an obvious absence than a backup that
+  # silently writes nowhere.
+  for_each = local.backups_enabled ? local.running : {}
 
   name    = "mc-${each.key}-backup"
   image   = docker_image.backup.image_id
