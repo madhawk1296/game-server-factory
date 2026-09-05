@@ -1,5 +1,4 @@
 locals {
-  backups_root = abspath("${path.root}/backups")
 
   # One source of truth for memory: the map states the container ceiling, the
   # heap is computed from it. Setting both by hand is the classic way to ship a
@@ -17,6 +16,15 @@ locals {
   # relaxed per-world; the fan-out must simply never ask to delete a volume.
   running = { for k, v in var.servers : k => v if v.state == "running" }
 
+  # Either the caller supplied a real S3 target, or we stand one up locally.
+  minio_enabled = var.backup_s3 == null
+  s3 = var.backup_s3 != null ? var.backup_s3 : {
+    endpoint   = "http://minio:9000"
+    bucket     = "mc-backups"
+    access_key = "mcbackup"
+    secret_key = one(random_password.minio[*].result)
+  }
+
   # The routing table, rendered from the same map that defines the worlds. One
   # source of truth: a world cannot exist without a route, or keep a stale one.
   routes = { for k, v in local.running : "${k}.${var.world_domain}" => "mc-${k}:25565" }
@@ -26,6 +34,105 @@ resource "random_password" "rcon" {
   for_each = var.servers
   length   = 24
   special  = false
+}
+
+resource "random_password" "minio" {
+  count   = var.backup_s3 == null ? 1 : 0
+  length  = 32
+  special = false
+}
+
+# One repository password for all worlds. Restic encrypts client-side, so this
+# is the only thing standing between the bucket and readable player data --
+# which is exactly why backups going off-box want restic rather than raw tar.
+resource "random_password" "restic" {
+  length  = 32
+  special = false
+}
+
+resource "docker_image" "minio" {
+  count = var.backup_s3 == null ? 1 : 0
+  name  = "minio/minio:latest"
+}
+
+resource "docker_volume" "minio" {
+  count = var.backup_s3 == null ? 1 : 0
+  name  = "mc-minio-data"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "docker_container" "minio" {
+  count   = var.backup_s3 == null ? 1 : 0
+  name    = "mc-minio"
+  image   = docker_image.minio[0].image_id
+  restart = "unless-stopped"
+
+  memory      = 512
+  memory_swap = 512
+
+  command = ["server", "/data", "--console-address", ":9001"]
+
+  env = [
+    "MINIO_ROOT_USER=${local.s3.access_key}",
+    "MINIO_ROOT_PASSWORD=${local.s3.secret_key}",
+  ]
+
+  # Console only. The S3 API is reachable inside the network; nothing needs it
+  # published, and publishing object storage holding world data would be silly.
+  ports {
+    internal = 9001
+    external = 9001
+  }
+
+  volumes {
+    volume_name    = docker_volume.minio[0].name
+    container_path = "/data"
+  }
+
+  networks_advanced {
+    name = docker_network.mc.name
+
+    # Alias so the endpoint reads like an ordinary S3 host. Container names are
+    # prefixed; the endpoint should not have to know that.
+    aliases = ["minio"]
+  }
+}
+
+resource "docker_image" "minio_client" {
+  count = var.backup_s3 == null ? 1 : 0
+  name  = "minio/mc:latest"
+}
+
+# Restic does not create buckets, so something has to. Against a real provider
+# this would be an aws_s3_bucket / cloudflare_r2_bucket resource; MinIO has no
+# provider here, so a run-once container stands in for that step.
+resource "docker_container" "minio_bucket" {
+  count      = var.backup_s3 == null ? 1 : 0
+  name       = "mc-minio-init"
+  image      = docker_image.minio_client[0].image_id
+  must_run   = false
+  attach     = false
+  entrypoint = ["/bin/sh", "-c"]
+
+  # depends_on gives start order, not readiness -- MinIO needs a moment to
+  # listen, so retry rather than race it.
+  command = [
+    "until mc alias set local http://minio:9000 \"$MINIO_USER\" \"$MINIO_PASS\" >/dev/null 2>&1; do sleep 2; done; mc mb --ignore-existing local/${local.s3.bucket} && echo bucket-ready"
+  ]
+
+  env = [
+    "MINIO_USER=${local.s3.access_key}",
+    "MINIO_PASS=${local.s3.secret_key}",
+  ]
+
+  networks_advanced {
+    name = docker_network.mc.name
+  }
+
+  depends_on = [docker_container.minio]
 }
 
 resource "docker_network" "mc" {
@@ -131,9 +238,18 @@ resource "docker_container" "backup" {
   memory_swap = 256
 
   env = [
+    "BACKUP_METHOD=restic",
     "BACKUP_INTERVAL=${var.backup_interval}",
-    "PRUNE_BACKUPS_DAYS=${var.backup_prune_days}",
-    "INITIAL_DELAY=2m",
+    "INITIAL_DELAY=${var.backup_initial_delay}",
+    "PRUNE_RESTIC_RETENTION=--keep-daily 7 --keep-weekly 4",
+
+    # One repository per world, so retention and restore are per-world and a
+    # corrupt repo cannot take every world down with it.
+    "RESTIC_REPOSITORY=s3:${local.s3.endpoint}/${local.s3.bucket}/${each.key}",
+    "RESTIC_PASSWORD=${random_password.restic.result}",
+    "AWS_ACCESS_KEY_ID=${local.s3.access_key}",
+    "AWS_SECRET_ACCESS_KEY=${local.s3.secret_key}",
+
     "RCON_HOST=mc-${each.key}",
     "RCON_PASSWORD=${random_password.rcon[each.key].result}",
   ]
@@ -144,18 +260,11 @@ resource "docker_container" "backup" {
     read_only      = true
   }
 
-  # Backups are bind-mounted so you can see them in Finder. Low, sequential
-  # I/O, so the VM boundary does not matter here the way it does for /data.
-  volumes {
-    host_path      = "${local.backups_root}/${each.key}"
-    container_path = "/backups"
-  }
-
   networks_advanced {
     name = docker_network.mc.name
   }
 
-  depends_on = [docker_container.mc]
+  depends_on = [docker_container.mc, docker_container.minio, docker_container.minio_bucket]
 }
 
 resource "docker_container" "router" {

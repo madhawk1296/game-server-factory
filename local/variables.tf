@@ -88,6 +88,33 @@ variable "servers" {
   }
 }
 
+variable "backup_s3" {
+  description = <<-EOT
+    S3-compatible destination for backups. Leave null and the stack runs a local
+    MinIO to stand in for one.
+
+    Be honest about what that stand-in proves: MinIO here lives on the same Mac
+    as the world volumes, so it is NOT off-box durability. What it buys is a
+    fully exercised S3 code path -- repository init, credentials, upload,
+    retention -- so pointing this at Cloudflare R2 or AWS S3 later is a config
+    change rather than a block of untested config.
+  EOT
+  type = object({
+    endpoint   = string # e.g. https://<account>.r2.cloudflarestorage.com
+    bucket     = string
+    access_key = string
+    secret_key = string
+  })
+  default   = null
+  sensitive = true
+}
+
+variable "backup_initial_delay" {
+  description = "How long a backup sidecar waits before its first run."
+  type        = string
+  default     = "30s"
+}
+
 variable "world_domain" {
   description = <<-EOT
     Suffix for each world's routable hostname: <world>.<world_domain>.

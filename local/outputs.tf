@@ -22,3 +22,9 @@ output "rcon_passwords" {
   value     = { for k, v in random_password.rcon : k => v.result }
   sensitive = true
 }
+
+output "restic_password" {
+  description = "Losing this makes every backup permanently unreadable. Save it outside Terraform state."
+  value       = random_password.restic.result
+  sensitive   = true
+}

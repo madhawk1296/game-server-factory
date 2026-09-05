@@ -59,6 +59,50 @@ Connect directly at `localhost:25566`, or through the router at
 127.0.0.1  smp.mc.localhost creative.mc.localhost
 ```
 
+### Backups
+
+Backups go to object storage via restic -- deduplicated, encrypted client-side,
+one repository per world so retention and restore are per-world and a corrupt
+repo cannot take everything down with it.
+
+With `backup_s3` unset, the stack runs a local MinIO as the S3 target. Be clear
+about what that does and does not prove: MinIO here sits on the same Mac as the
+world volumes, so it is **not** off-box durability. What it buys is a fully
+exercised S3 path -- bucket creation, credentials, repo init, upload, retention,
+restore -- so switching to real storage is a config change rather than a block
+of untested config:
+
+```hcl
+backup_s3 = {
+  endpoint   = "https://<account>.r2.cloudflarestorage.com"
+  bucket     = "mc-backups"
+  access_key = "..."
+  secret_key = "..."
+}
+```
+
+Setting it drops MinIO from the stack entirely and points restic at the real
+thing. Cloudflare R2 is the natural target -- S3-compatible, and no egress fees,
+which matters on the day you actually restore.
+
+**The restic password is the single point of failure.** Restic encrypts before
+anything leaves the host, so the password is all that stands between the bucket
+and readable player data -- and equally, losing it makes every backup
+permanently unreadable. Terraform generates it into local state, which means
+*your state file is now a credential*. Before relying on this, either back up
+the state or pin the password somewhere you control.
+
+```bash
+cd local
+terraform output -raw restic_password          # save this somewhere safe
+
+docker exec mc-smp-backup restic snapshots     # what exists
+docker exec mc-smp-backup restic restore latest --target /tmp/r
+```
+
+Restore has been tested, not assumed: a snapshot restored 401 files including
+`level.dat` and the region files. An untested backup is not a backup.
+
 ### World lifecycle and decommissioning
 
 A world has a `state`, and it is not the same thing as existing:
