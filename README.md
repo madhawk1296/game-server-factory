@@ -4,14 +4,31 @@ Terraform-provisioned game servers. Starting with Minecraft, one box at a time.
 
 ## Roadmap
 
-- **v0 — one server, hardcoded.** *(current)* One VM, one persistent volume, one
-  container. The world survives server replacement.
-- **v1 — the factory shape.** Extract a `minecraft_server` module, drive it with
-  `for_each`, put `mc-router` in front so many worlds share port 25565 by
-  subdomain. Ship backups off-box.
-- **v2 — control plane.** Terraform owns the host fleet only; a separate service
-  reconciles which servers exist from a database.
-- **v3 — self-serve.** Auth, web UI, RCON console, scale-to-zero on idle.
+Each step is pulled by a need, not pushed by a checklist. The trigger matters
+more than the feature list.
+
+- **v0 -- one world, proven disposable.** *(done, locally)* One world, one
+  volume, one container; the world survives its server being destroyed.
+  Verified by replacing the container with an unsaved block in the world.
+  The Hetzner stack is written but has never been applied.
+- **v1 -- the factory.** *(next)* N worlds from a map, on one box. Prove the
+  router multiplexes at N>1, work out how to decommission a world when
+  `prevent_destroy` blocks the apply, and get backups off-box.
+  *Trigger: you want a second world.*
+- **v2 -- cloud and multi-host.** Real DNS, so hostname routing stops needing
+  /etc/hosts and becomes the actual feature. Then a second machine, which
+  introduces placement -- the first genuinely new problem here.
+  *Trigger: other people need in, or one box is not enough.*
+- **v3 -- control plane.** A panel plus a per-node agent, the way
+  Pterodactyl/Pelican do it -- not a central reconciler issuing RCON across the
+  internet. Panel owns ownership, placement, allocations, limits. Agent owns its
+  node. Ops and whitelists stay with the game.
+  *Trigger: a second person needs to change something without running apply.*
+- **v4 -- self-serve.** Auth, web UI, browser console, scale-to-zero, billing.
+  *Trigger: strangers, and money.*
+
+Cloud deliberately does not appear until v2: putting one world on a VM is a
+deployment target, not an idea.
 
 ## Running locally first
 
