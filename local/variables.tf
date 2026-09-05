@@ -30,14 +30,29 @@ variable "servers" {
     type       = optional(string, "PAPER")
     version    = optional(string, "LATEST")
     motd       = optional(string, "Local dev world")
+    gamemode   = optional(string, "survival")
     difficulty = optional(string, "normal")
     ops        = optional(list(string), [])
   }))
 
+  # Budget check before adding a world: the Docker VM has ~7.6 GB, and each
+  # world costs memory_mb plus 256 MB for its backup sidecar.
   default = {
-    # Docker Desktop's VM has less RAM than the Mac does. Check what it actually
-    # has before adding a second world; 4G each plus overhead adds up fast.
-    smp = { port = 25566, ops = ["madhawk1296"] }
+    smp = {
+      port      = 25566
+      memory_mb = 3072
+      motd      = "Survival"
+      ops       = ["madhawk1296"]
+    }
+
+    creative = {
+      port       = 25567
+      memory_mb  = 2048
+      motd       = "Creative build server"
+      gamemode   = "creative"
+      difficulty = "peaceful"
+      ops        = ["madhawk1296"]
+    }
   }
 }
 

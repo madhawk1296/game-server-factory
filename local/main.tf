@@ -73,6 +73,7 @@ resource "docker_container" "mc" {
     "MEMORY=${local.heap_mb[each.key]}M",
     "USE_AIKAR_FLAGS=true",
     "MOTD=${each.value.motd}",
+    "MODE=${each.value.gamemode}",
     "DIFFICULTY=${each.value.difficulty}",
     "OPS=${join(",", each.value.ops)}",
     "ENABLE_RCON=true",
