@@ -26,9 +26,12 @@ except Exception:
 # come up. Without this the suite races the servers and reports failures that
 # are really just impatience.
 wait_ready() {
+  # Health status, not the log. Container logs survive a restart, so grepping
+  # for "Done (" matches the *previous* boot and reports ready immediately --
+  # which is how a reboot test once claimed success five seconds in.
   local w=$1
   for _ in $(seq 1 40); do
-    docker logs "mc-$w" 2>&1 | grep -q 'Done (' && return 0
+    [ "$(docker inspect -f '{{.State.Health.Status}}' "mc-$w" 2>/dev/null)" = "healthy" ] && return 0
     sleep 3
   done
   return 1

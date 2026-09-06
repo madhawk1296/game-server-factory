@@ -77,3 +77,15 @@ variable "dns_prefix" {
   type        = string
   default     = null
 }
+
+variable "alert_email" {
+  description = <<-EOT
+    Where resource alerts go. Leave null to skip creating them.
+
+    Alerts need DigitalOcean's metrics agent, which the droplet now installs via
+    monitoring = true. Without the agent the alerts exist but never fire, which
+    is worse than not having them.
+  EOT
+  type        = string
+  default     = null
+}

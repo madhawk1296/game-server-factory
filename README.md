@@ -103,6 +103,42 @@ docker exec mc-smp-backup restic restore latest --target /tmp/r
 Restore has been tested, not assumed: a snapshot restored 401 files including
 `level.dat` and the region files. An untested backup is not a backup.
 
+### Operating the cloud host
+
+The two roots tear down in reverse order, and the order matters:
+
+```bash
+cd cloud/worlds && terraform destroy   # stops containers gracefully first
+cd ../host      && terraform destroy   # then the machine
+```
+
+Destroying the host while worlds are still deployed is a hard power-off for
+everything on it. Paper never receives SIGTERM, never flushes, and anything
+since its last autosave (~5 minutes by default) is gone. The world directory
+itself survives -- it lives on the block volume -- but in-memory state does not.
+`destroy_grace_seconds` only applies when Terraform destroys the *container*;
+the host root has no idea containers exist.
+
+The same bound applies to any unplanned host loss, which no ordering protects
+against. With backups disabled, ~5 minutes is the exposure.
+
+**Mothballing.** Destroying just the droplet keeps the volume and the reserved
+IP, dropping cost from ~$50/month to a few dollars:
+
+```bash
+cd cloud/worlds && terraform destroy
+cd ../host      && terraform destroy -target=digitalocean_droplet.host
+```
+
+`terraform apply` in both brings it back in about three minutes with the same
+world and the same address -- DNS needs no change, because the reserved IP
+belongs to the account rather than the machine.
+
+**Verified by rebuilding the real host:** the volume reattached to a brand-new
+droplet with the world intact, the reserved IP did not move so DNS needed no
+update, and after a reboot the volume remounted from fstab, Docker came up on
+the right data-root, and the containers restarted on their own.
+
 ### Testing
 
 ```bash

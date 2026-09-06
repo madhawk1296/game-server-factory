@@ -30,6 +30,10 @@ resource "digitalocean_droplet" "host" {
   image    = "ubuntu-24-04-x64"
   ssh_keys = [digitalocean_ssh_key.admin.fingerprint]
 
+  # Installs do-agent, which is what publishes the metrics the alerts below
+  # read. Alerts without it are decorative.
+  monitoring = true
+
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     volume_device = local.volume_device
   })
@@ -108,4 +112,44 @@ resource "digitalocean_record" "worlds" {
   name   = var.dns_prefix == null ? "*" : "*.${var.dns_prefix}"
   value  = digitalocean_reserved_ip.host.ip_address
   ttl    = 60
+}
+
+# Memory is the constraint that decides how many worlds fit, so this is the one
+# that actually tells you something actionable.
+resource "digitalocean_monitor_alert" "memory" {
+  count = var.alert_email == null ? 0 : 1
+  alerts { email = [var.alert_email] }
+  window      = "5m"
+  type        = "v1/insights/droplet/memory_utilization_percent"
+  compare     = "GreaterThan"
+  value       = 90
+  enabled     = true
+  entities    = [digitalocean_droplet.host.id]
+  description = "${var.name}: memory above 90%"
+}
+
+resource "digitalocean_monitor_alert" "disk" {
+  count = var.alert_email == null ? 0 : 1
+  alerts { email = [var.alert_email] }
+  window      = "5m"
+  type        = "v1/insights/droplet/disk_utilization_percent"
+  compare     = "GreaterThan"
+  value       = 80
+  enabled     = true
+  entities    = [digitalocean_droplet.host.id]
+  description = "${var.name}: disk above 80%"
+}
+
+# A ten minute window rather than five: chunk generation spikes CPU hard and
+# briefly, and an alert that cries wolf during normal play gets muted.
+resource "digitalocean_monitor_alert" "cpu" {
+  count = var.alert_email == null ? 0 : 1
+  alerts { email = [var.alert_email] }
+  window      = "10m"
+  type        = "v1/insights/droplet/cpu"
+  compare     = "GreaterThan"
+  value       = 90
+  enabled     = true
+  entities    = [digitalocean_droplet.host.id]
+  description = "${var.name}: CPU above 90% sustained"
 }
