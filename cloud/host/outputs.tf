@@ -10,11 +10,11 @@ output "droplet_ipv4" {
 
 output "world_domain" {
   description = "Suffix ../worlds uses for routable hostnames."
-  value       = var.domain == null ? "mc.example.com" : "${var.dns_prefix}.${var.domain}"
+  value       = var.domain == null ? "mc.example.com" : (var.dns_prefix == null ? var.domain : "${var.dns_prefix}.${var.domain}")
 }
 
 output "dns" {
-  value = var.domain == null ? "no domain set -- using /etc/hosts" : "*.${var.dns_prefix}.${var.domain} -> ${digitalocean_reserved_ip.host.ip_address}"
+  value = var.domain == null ? "no domain set -- using /etc/hosts" : "*.${var.dns_prefix == null ? "" : "${var.dns_prefix}."}${var.domain} -> ${digitalocean_reserved_ip.host.ip_address}"
 }
 
 output "docker_host" {

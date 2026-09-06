@@ -65,7 +65,15 @@ variable "domain" {
 }
 
 variable "dns_prefix" {
-  description = "Worlds become <world>.<dns_prefix>.<domain>, e.g. smp.mc.example.dev."
+  description = <<-EOT
+    Optional label between the world and the domain.
+
+    null  -> smp.example.dev        (wildcard at the apex)
+    "mc"  -> smp.mc.example.dev
+
+    Worth leaving null on a domain that already says what it is; worth setting
+    on one that does other things too, so worlds cannot collide with www.
+  EOT
   type        = string
-  default     = "mc"
+  default     = null
 }

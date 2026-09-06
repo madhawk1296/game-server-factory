@@ -105,7 +105,7 @@ resource "digitalocean_record" "worlds" {
   count  = var.domain == null ? 0 : 1
   domain = digitalocean_domain.zone[0].name
   type   = "A"
-  name   = "*.${var.dns_prefix}"
+  name   = var.dns_prefix == null ? "*" : "*.${var.dns_prefix}"
   value  = digitalocean_reserved_ip.host.ip_address
   ttl    = 60
 }
