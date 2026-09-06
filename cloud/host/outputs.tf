@@ -25,3 +25,8 @@ output "docker_host" {
 output "ssh" {
   value = "ssh root@${digitalocean_reserved_ip.host.ip_address}"
 }
+
+output "ssh_allowed_from" {
+  description = "Who can currently reach port 22."
+  value       = local.ssh_allowed
+}

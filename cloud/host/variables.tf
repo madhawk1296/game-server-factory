@@ -46,9 +46,19 @@ variable "ssh_public_key_path" {
 }
 
 variable "ssh_allowed_ips" {
-  description = "CIDRs allowed to reach port 22. Narrow this once things work."
+  description = <<-EOT
+    CIDRs allowed to reach port 22. Leave null to detect the address you are
+    applying from and allow only that.
+
+    Pinning a literal address seems safer until a residential IP rotates and
+    locks you out -- which it will, and did. Auto-detection re-opens access from
+    wherever you actually are on every apply, and closes it everywhere else.
+
+    Note this means applying from a different network moves the hole rather than
+    adding one. That is the intent.
+  EOT
   type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
+  default     = null
 }
 
 variable "domain" {

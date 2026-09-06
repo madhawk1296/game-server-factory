@@ -1,4 +1,11 @@
+data "http" "my_ip" {
+  count = var.ssh_allowed_ips == null ? 1 : 0
+  url   = "https://api.ipify.org"
+}
+
 locals {
+  ssh_allowed = var.ssh_allowed_ips != null ? var.ssh_allowed_ips : ["${chomp(data.http.my_ip[0].response_body)}/32"]
+
   # DigitalOcean exposes attached volumes at a deterministic path derived from
   # the volume name, so the droplet does not have to depend on its own
   # attachment -- which would cycle.
@@ -51,7 +58,7 @@ resource "digitalocean_firewall" "mc" {
   inbound_rule {
     protocol         = "tcp"
     port_range       = "22"
-    source_addresses = var.ssh_allowed_ips
+    source_addresses = local.ssh_allowed
   }
 
   # The router's single port. Individual worlds are never published.
