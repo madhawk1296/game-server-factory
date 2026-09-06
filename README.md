@@ -7,14 +7,16 @@ Terraform-provisioned game servers. Starting with Minecraft, one box at a time.
 Each step is pulled by a need, not pushed by a checklist. The trigger matters
 more than the feature list.
 
-- **v0 -- one world, proven disposable.** *(done, locally)* One world, one
-  volume, one container; the world survives its server being destroyed.
-  Verified by replacing the container with an unsaved block in the world.
-  The Hetzner stack is written but has never been applied.
-- **v1 -- the factory.** *(next)* N worlds from a map, on one box. Prove the
-  router multiplexes at N>1, work out how to decommission a world when
-  `prevent_destroy` blocks the apply, and get backups off-box.
-  *Trigger: you want a second world.*
+- **v0 -- one world, proven disposable.** *(done)* One world, one volume, one
+  container; the world survives its server being destroyed. Verified by
+  replacing the container with an unsaved block in the world, and later by
+  destroying and rebuilding an entire cloud host.
+- **v1 -- the factory.** *(done)* N worlds from a map on one box: hard memory
+  limits with the heap derived from the ceiling, hostname multiplexing proven at
+  N>1 on a single port, published ports optional and validated as allocations,
+  running/stopped lifecycle with a deliberate path to deletion, and encrypted
+  deduplicated backups with a verified restore. 28 acceptance checks in
+  local/test.sh.
 - **v2 -- cloud and multi-host.** *(done, as scoped)* One DigitalOcean droplet
   running the same module as local, at smp.cheapminecraftservers.com. Reserved
   IP so the address outlives the machine, a single wildcard DNS record so adding
@@ -33,7 +35,11 @@ more than the feature list.
   makes are legible rather than magic.
 
   *Trigger: wanting customers rather than friends.*
-- **v4 -- self-serve.** Auth, web UI, browser console, scale-to-zero, billing.
+- **v4 -- billing and signup.** Pelican covers accounts, consoles, and server
+  creation, so what is left is taking money and provisioning on payment.
+  Paymenter is the open-source billing panel built for exactly this and
+  integrates with Pelican; WHMCS is the paid incumbent. Same reasoning as v3 --
+  this is solved software, not a differentiator.
   *Trigger: strangers, and money.*
 
 Cloud deliberately does not appear until v2: putting one world on a VM is a
