@@ -1,3 +1,12 @@
+# LOCAL DEVELOPMENT ONLY as of v3.4.
+#
+# The cloud node runs Pelican, which owns game servers there -- two systems
+# managing containers on one Docker daemon is a liability, not redundancy. This
+# module now serves only local/, and is kept because the test suite around it
+# still documents what the design has to get right: data outliving its
+# container, memory ceilings derived from measured overhead, ports as
+# allocations rather than derived values.
+#
 # The product: worlds, their sidecars, and the router that fronts them.
 #
 # Deliberately knows nothing about *where* its Docker daemon is. The caller

@@ -23,7 +23,8 @@ more than the feature list.
   a world never touches DNS, monitoring, and a boot path verified by destroying
   and rebuilding the real host. Backups, remote state, and a second host were
   deliberately dropped.
-- **v3 -- adopt a control panel, do not build one.** Pelican Panel already is
+- **v3 -- adopt a control panel, do not build one.** *(in progress: panel, node,
+  and migration done)* Pelican Panel already is
   this product: accounts, server creation, resource limits, browser console,
   file manager, SFTP, backups, multi-node scheduling. Free, open source, and
   what a large share of independent hosts actually run. Writing our own would
@@ -117,6 +118,20 @@ docker exec mc-smp-backup restic restore latest --target /tmp/r
 
 Restore has been tested, not assumed: a snapshot restored 401 files including
 `level.dat` and the region files. An untested backup is not a backup.
+
+### Layout
+
+```
+cloud/host     the node: droplet, volume, firewall, reserved IP, DNS, cloud-init
+cloud/panel    Pelican Panel as a container
+modules/worlds local development only -- superseded on the cloud by Pelican
+local          the local stack, still useful as a sandbox
+```
+
+Terraform provisions nodes; Pelican schedules game servers onto them. The
+pre-migration world is retained on the node in three places -- the mc-smp-data
+volume, a staged copy under /mnt/docker/migration, and live under Pelican --
+until the migration has been trusted for long enough to prune the first two.
 
 ### Pelican
 
