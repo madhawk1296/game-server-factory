@@ -15,15 +15,24 @@ more than the feature list.
   router multiplexes at N>1, work out how to decommission a world when
   `prevent_destroy` blocks the apply, and get backups off-box.
   *Trigger: you want a second world.*
-- **v2 -- cloud and multi-host.** Real DNS, so hostname routing stops needing
-  /etc/hosts and becomes the actual feature. Then a second machine, which
-  introduces placement -- the first genuinely new problem here.
-  *Trigger: other people need in, or one box is not enough.*
-- **v3 -- control plane.** A panel plus a per-node agent, the way
-  Pterodactyl/Pelican do it -- not a central reconciler issuing RCON across the
-  internet. Panel owns ownership, placement, allocations, limits. Agent owns its
-  node. Ops and whitelists stay with the game.
-  *Trigger: a second person needs to change something without running apply.*
+- **v2 -- cloud and multi-host.** *(done, as scoped)* One DigitalOcean droplet
+  running the same module as local, at smp.cheapminecraftservers.com. Reserved
+  IP so the address outlives the machine, a single wildcard DNS record so adding
+  a world never touches DNS, monitoring, and a boot path verified by destroying
+  and rebuilding the real host. Backups, remote state, and a second host were
+  deliberately dropped.
+- **v3 -- adopt a control panel, do not build one.** Pelican Panel already is
+  this product: accounts, server creation, resource limits, browser console,
+  file manager, SFTP, backups, multi-node scheduling. Free, open source, and
+  what a large share of independent hosts actually run. Writing our own would
+  take months to reach parity and would not be a competitive advantage.
+
+  The split becomes: Terraform provisions nodes, Pelican schedules onto them.
+  That retires modules/worlds, since two systems cannot both manage containers
+  on one Docker daemon. Not waste -- building it is why the trade-offs Pelican
+  makes are legible rather than magic.
+
+  *Trigger: wanting customers rather than friends.*
 - **v4 -- self-serve.** Auth, web UI, browser console, scale-to-zero, billing.
   *Trigger: strangers, and money.*
 
