@@ -78,6 +78,17 @@ resource "docker_container" "mc" {
   # contention, which is exactly when you want fairness.
   cpu_shares = each.value.cpu_shares
 
+  # Declared explicitly rather than inherited from the daemon. A host-level
+  # default gets stamped onto every container and read back by the provider,
+  # which then plans to remove it forever -- a permanent diff that recreates
+  # every world on each apply. Stating it here also means local and cloud rotate
+  # logs the same way instead of depending on how the host is configured.
+  log_driver = "json-file"
+  log_opts = {
+    "max-size" = "10m"
+    "max-file" = "3"
+  }
+
   env = [
     "EULA=TRUE",
     "TYPE=${each.value.type}",
@@ -133,6 +144,17 @@ resource "docker_container" "backup" {
   memory      = 256
   memory_swap = 256
 
+  # Declared explicitly rather than inherited from the daemon. A host-level
+  # default gets stamped onto every container and read back by the provider,
+  # which then plans to remove it forever -- a permanent diff that recreates
+  # every world on each apply. Stating it here also means local and cloud rotate
+  # logs the same way instead of depending on how the host is configured.
+  log_driver = "json-file"
+  log_opts = {
+    "max-size" = "10m"
+    "max-file" = "3"
+  }
+
   env = [
     "BACKUP_METHOD=restic",
     "BACKUP_INTERVAL=${var.backup_interval}",
@@ -172,6 +194,17 @@ resource "docker_container" "router" {
   # dies every world becomes unreachable at once.
   memory      = 128
   memory_swap = 128
+
+  # Declared explicitly rather than inherited from the daemon. A host-level
+  # default gets stamped onto every container and read back by the provider,
+  # which then plans to remove it forever -- a permanent diff that recreates
+  # every world on each apply. Stating it here also means local and cloud rotate
+  # logs the same way instead of depending on how the host is configured.
+  log_driver = "json-file"
+  log_opts = {
+    "max-size" = "10m"
+    "max-file" = "3"
+  }
 
   # Terraform already knows every world, so it renders the routing table
   # directly. The alternative -- --in-docker label discovery -- needs the Docker

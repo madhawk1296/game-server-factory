@@ -22,6 +22,23 @@ except Exception:
     print('REFUSED')
 "; }
 
+# Running this straight after an apply is normal, and Paper takes ~20-30s to
+# come up. Without this the suite races the servers and reports failures that
+# are really just impatience.
+wait_ready() {
+  local w=$1
+  for _ in $(seq 1 40); do
+    docker logs "mc-$w" 2>&1 | grep -q 'Done (' && return 0
+    sleep 3
+  done
+  return 1
+}
+for w in smp creative; do
+  if docker ps --format '{{.Names}}' | grep -qx "mc-$w"; then
+    wait_ready "$w" || echo "  WARN mc-$w never reported ready"
+  fi
+done
+
 head_ "Config matches reality"
 if terraform plan -detailed-exitcode -no-color >/dev/null 2>&1; then
   ok "no drift between config and running infrastructure"
