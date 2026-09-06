@@ -99,3 +99,17 @@ variable "alert_email" {
   type        = string
   default     = null
 }
+
+variable "node_hostname" {
+  description = <<-EOT
+    Hostname the panel and browsers use to reach Wings.
+
+    Needs no DNS record -- the wildcard already resolves it. TLS is terminated
+    by the panel's Caddy and reverse-proxied to Wings on the host, so Wings
+    itself speaks plain HTTP and never handles a certificate. The alternative,
+    giving Wings its own cert via DNS-01, would mean a DigitalOcean API token
+    living on the droplet.
+  EOT
+  type        = string
+  default     = "node.cheapminecraftservers.com"
+}

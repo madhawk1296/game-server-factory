@@ -75,4 +75,12 @@ resource "docker_container" "panel" {
     volume_name    = docker_volume.logs.name
     container_path = "/var/www/html/storage/logs"
   }
+
+  # Written by cloud-init on the host. Adds a site for the node alongside the
+  # panel's own, so one Caddy holds certificates for both names.
+  volumes {
+    host_path      = "/opt/pelican/Caddyfile"
+    container_path = "/etc/caddy/Caddyfile"
+    read_only      = true
+  }
 }

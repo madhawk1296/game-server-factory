@@ -72,8 +72,71 @@ write_files:
       apt-get update -y
       DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io
 
+  # Extends the image's own Caddyfile rather than replacing it: same global
+  # block and same panel site, plus a second site that terminates TLS for the
+  # node and proxies to Wings on the host. Wings therefore never handles a
+  # certificate, and the browser console -- which connects directly to Wings,
+  # not through the panel -- gets a valid one.
+  - path: /opt/pelican/Caddyfile
+    permissions: "0644"
+    content: |
+      {
+      	servers {
+      		{$CADDY_TRUSTED_PROXIES}
+      		{$CADDY_STRICT_PROXIES}
+      	}
+      	admin off
+      	{$CADDY_AUTO_HTTPS}
+      	{$CADDY_LE_EMAIL}
+      }
+
+      {$CADDY_APP_URL} {
+      	root * /var/www/html/public
+      	encode gzip
+
+      	file_server
+      	php_fastcgi 127.0.0.1:9000
+      }
+
+      https://${node_hostname} {
+      	reverse_proxy host.docker.internal:8080
+      }
+
+  - path: /etc/systemd/system/wings.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Pelican Wings Daemon
+      After=docker.service
+      Requires=docker.service
+      PartOf=docker.service
+
+      [Service]
+      User=root
+      WorkingDirectory=/etc/pelican
+      LimitNOFILE=4096
+      PIDFile=/var/run/wings/daemon.pid
+      ExecStart=/usr/local/bin/wings
+      Restart=on-failure
+      StartLimitInterval=180
+      StartLimitBurst=30
+      RestartSec=5s
+
+      [Install]
+      WantedBy=multi-user.target
+
 runcmd:
   - /usr/local/sbin/prepare-docker-storage
   - /usr/local/sbin/install-docker
   - systemctl enable --now docker
   - docker info --format 'data-root={{.DockerRootDir}}'
+
+  # Wings is a host binary, not a container: it drives the Docker socket and
+  # binds game ports directly. Deliberately not enabled here -- it has no config
+  # until a node is created in the panel, and a service crash-looping on a
+  # missing file is noise, not information.
+  - mkdir -p /etc/pelican /var/lib/pelican /var/log/pelican /var/run/wings
+  - curl -fsSL -o /usr/local/bin/wings https://github.com/pelican-dev/wings/releases/latest/download/wings_linux_amd64
+  - chmod u+x /usr/local/bin/wings
+  - systemctl daemon-reload
+  - /usr/local/bin/wings version

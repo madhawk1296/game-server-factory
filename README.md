@@ -123,8 +123,15 @@ Restore has been tested, not assumed: a snapshot restored 401 files including
 The two roots tear down in reverse order, and the order matters:
 
 ```bash
-cd cloud/worlds && terraform destroy   # stops containers gracefully first
-cd ../host      && terraform destroy   # then the machine
+# Stop the game containers gracefully. NOT `terraform destroy` on this root --
+# that tries to delete the world volumes too, hits prevent_destroy, and aborts
+# before stopping anything.
+cd cloud/worlds
+terraform destroy -auto-approve \
+  -target='module.worlds.docker_container.mc' \
+  -target='module.worlds.docker_container.backup'
+
+cd ../host && terraform destroy        # then the machine
 ```
 
 Destroying the host while worlds are still deployed is a hard power-off for
@@ -141,8 +148,10 @@ against. With backups disabled, ~5 minutes is the exposure.
 IP, dropping cost from ~$50/month to a few dollars:
 
 ```bash
-cd cloud/worlds && terraform destroy
-cd ../host      && terraform destroy -target=digitalocean_droplet.host
+cd cloud/worlds
+terraform destroy -auto-approve -target='module.worlds.docker_container.mc' \
+                                -target='module.worlds.docker_container.backup'
+cd ../host && terraform destroy -target=digitalocean_droplet.host
 ```
 
 `terraform apply` in both brings it back in about three minutes with the same

@@ -30,3 +30,7 @@ output "ssh_allowed_from" {
   description = "Who can currently reach port 22."
   value       = local.ssh_allowed
 }
+
+output "node_hostname" {
+  value = var.node_hostname
+}

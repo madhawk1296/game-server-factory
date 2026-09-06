@@ -43,6 +43,7 @@ resource "digitalocean_droplet" "host" {
 
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     volume_device = local.volume_device
+    node_hostname = var.node_hostname
   })
 }
 
@@ -79,6 +80,14 @@ resource "digitalocean_firewall" "mc" {
   inbound_rule {
     protocol         = "tcp"
     port_range       = "443"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  # Wings' SFTP. Not the daemon API -- that arrives on 443 through the panel's
+  # Caddy, so Wings needs no publicly routable HTTP port of its own.
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "2022"
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
 
