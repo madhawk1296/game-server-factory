@@ -56,6 +56,21 @@ write_files:
         echo "$DEV /mnt/docker ext4 discard,nofail,defaults 0 2" >> /etc/fstab
       fi
       findmnt -n /mnt/docker >/dev/null 2>&1 || mount /mnt/docker
+
+      # Pelican keeps server data and its node identity under /var/lib and /etc
+      # by default, both on the ephemeral root disk. Bind them onto the block
+      # volume rather than fighting Pelican's layout: a droplet rebuild would
+      # otherwise delete every customer's world and the node's own credentials,
+      # while Docker's data sat safely on the volume beside them.
+      mkdir -p /mnt/docker/pelican-volumes /mnt/docker/pelican-config
+      mkdir -p /var/lib/pelican/volumes /etc/pelican
+      grep -q " /var/lib/pelican/volumes " /etc/fstab || \
+        echo "/mnt/docker/pelican-volumes /var/lib/pelican/volumes none bind 0 0" >> /etc/fstab
+      grep -q " /etc/pelican " /etc/fstab || \
+        echo "/mnt/docker/pelican-config /etc/pelican none bind 0 0" >> /etc/fstab
+      findmnt -n /var/lib/pelican/volumes >/dev/null 2>&1 || mount /var/lib/pelican/volumes
+      findmnt -n /etc/pelican >/dev/null 2>&1 || mount /etc/pelican
+
       findmnt -n /mnt/docker
 
   - path: /usr/local/sbin/install-docker
@@ -132,11 +147,12 @@ runcmd:
   - docker info --format 'data-root={{.DockerRootDir}}'
 
   # Wings is a host binary, not a container: it drives the Docker socket and
-  # binds game ports directly. Deliberately not enabled here -- it has no config
-  # until a node is created in the panel, and a service crash-looping on a
-  # missing file is noise, not information.
-  - mkdir -p /etc/pelican /var/lib/pelican /var/log/pelican /var/run/wings
+  # binds game ports directly. Enabled only when a config already exists on the
+  # volume -- on a first build there is no node yet, and a service crash-looping
+  # on a missing file is noise rather than information.
+  - mkdir -p /var/log/pelican /var/run/wings
   - curl -fsSL -o /usr/local/bin/wings https://github.com/pelican-dev/wings/releases/latest/download/wings_linux_amd64
   - chmod u+x /usr/local/bin/wings
   - systemctl daemon-reload
   - /usr/local/bin/wings version
+  - test -f /etc/pelican/config.yml && systemctl enable --now wings || echo "no node config yet; create a node in the panel first"
