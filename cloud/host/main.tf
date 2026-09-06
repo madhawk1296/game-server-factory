@@ -183,3 +183,15 @@ resource "digitalocean_monitor_alert" "cpu" {
   entities    = [digitalocean_droplet.host.id]
   description = "${var.name}: CPU above 90% sustained"
 }
+
+# The wildcard does not cover the bare domain. An apex record means the flagship
+# server is reachable at cheapminecraftservers.com with no subdomain and no
+# port, since whatever holds 25565 is what a client tries by default.
+resource "digitalocean_record" "apex" {
+  count  = var.domain == null ? 0 : 1
+  domain = digitalocean_domain.zone[0].name
+  type   = "A"
+  name   = "@"
+  value  = digitalocean_reserved_ip.host.ip_address
+  ttl    = 60
+}
