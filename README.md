@@ -118,6 +118,42 @@ docker exec mc-smp-backup restic restore latest --target /tmp/r
 Restore has been tested, not assumed: a snapshot restored 401 files including
 `level.dat` and the region files. An untested backup is not a backup.
 
+### Pelican
+
+The cloud node runs Pelican: the panel at panel.cheapminecraftservers.com, Wings
+on the host, and game servers created through the panel rather than Terraform.
+Terraform still owns the node itself -- droplet, volume, firewall, reserved IP,
+DNS, Docker, Wings, and the panel container.
+
+Four things that cost time when migrating onto it:
+
+**Allocations cannot use the reserved IP.** DigitalOcean routes a reserved IP to
+the droplet's anchor address rather than configuring it on eth0, so no process
+can bind it -- Docker fails with "cannot assign requested address". Use 0.0.0.0
+with a display alias. The droplet's own address would work today and break on
+the next rebuild, which is the fragility the reserved IP exists to prevent.
+
+**Server files must be owned by 997:986**, the host's pelican user, which is what
+Wings runs containers as. Not root, and not the image's own default uid.
+
+**The Paper egg ships MaxRAMPercentage=95.** On a 5 GB server that leaves ~256 MB
+for a JVM whose non-heap overhead measured 400-700 MB on this workload. 80 is
+the number that matches what was measured. The default is fine on large servers
+where 5% is still a gigabyte; it is small servers where the percentage model
+breaks, because overhead does not shrink proportionally.
+
+**Memory behaves differently than it did under Terraform.** Pelican starts the
+JVM with Xms128M and lets the heap grow, where the previous setup used Aikar
+flags with Xms=Xmx and committed everything at boot. Idle servers now sit near
+900 MB rather than their full allocation, which is what makes the node's
+overallocate percentage a usable strategy rather than a gamble.
+
+The panel shows a suggested Wings config that does not match what is deployed:
+it assumes Wings terminates its own TLS, whereas here Caddy terminates for both
+hostnames and proxies to Wings on 8080. Do not use "Auto Deploy Command" -- it
+would overwrite the working config with one pointing at certificates that do not
+exist.
+
 ### Operating the cloud host
 
 The two roots tear down in reverse order, and the order matters:
