@@ -50,3 +50,22 @@ variable "ssh_allowed_ips" {
   type        = list(string)
   default     = ["0.0.0.0/0", "::/0"]
 }
+
+variable "domain" {
+  description = <<-EOT
+    A domain you own, e.g. "example.dev". Leave null to skip DNS entirely and
+    keep using /etc/hosts.
+
+    Setting it requires the domain's nameservers to point at DigitalOcean
+    (ns1/ns2/ns3.digitalocean.com) -- Terraform can create the records, but it
+    cannot make your registrar delegate the zone.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "dns_prefix" {
+  description = "Worlds become <world>.<dns_prefix>.<domain>, e.g. smp.mc.example.dev."
+  type        = string
+  default     = "mc"
+}

@@ -24,9 +24,13 @@ variable "servers" {
 }
 
 variable "world_domain" {
-  description = "Suffix for routable hostnames. Becomes a real domain at v2.2."
+  description = <<-EOT
+    Suffix for routable hostnames. Normally left null: the host root already
+    knows it, derived from whether a domain is configured there. Set it only to
+    override.
+  EOT
   type        = string
-  default     = "mc.example.com"
+  default     = null
 }
 
 variable "backup_s3" {

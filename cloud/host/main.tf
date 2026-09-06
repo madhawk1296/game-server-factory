@@ -79,3 +79,33 @@ resource "digitalocean_firewall" "mc" {
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
 }
+
+# A reserved IP belongs to the account, not the droplet. Replacing the droplet
+# reassigns it rather than handing out a new address -- so DNS never has to
+# change and nobody's saved server entry breaks. Free while assigned.
+# droplet_id is set here rather than via a separate
+# digitalocean_reserved_ip_assignment: creating an unassigned reserved IP first
+# trips a provider bug ("Root object was present, but now absent") that leaks an
+# orphaned, billing IP outside of state. Allocate and assign in one call.
+resource "digitalocean_reserved_ip" "host" {
+  region     = var.region
+  droplet_id = digitalocean_droplet.host.id
+}
+
+# Terraform can manage the records, but only once the registrar delegates the
+# zone to DigitalOcean's nameservers. That part is yours.
+resource "digitalocean_domain" "zone" {
+  count = var.domain == null ? 0 : 1
+  name  = var.domain
+}
+
+# One wildcard covers every world that will ever exist, so adding a world never
+# touches DNS. The routing decision belongs to mc-router, not to the resolver.
+resource "digitalocean_record" "worlds" {
+  count  = var.domain == null ? 0 : 1
+  domain = digitalocean_domain.zone[0].name
+  type   = "A"
+  name   = "*.${var.dns_prefix}"
+  value  = digitalocean_reserved_ip.host.ip_address
+  ttl    = 60
+}

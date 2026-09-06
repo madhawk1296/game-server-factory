@@ -14,7 +14,7 @@ module "worlds" {
 
   network_name    = docker_network.mc.name
   servers         = var.servers
-  world_domain    = var.world_domain
+  world_domain    = coalesce(var.world_domain, data.terraform_remote_state.host.outputs.world_domain)
   jvm_overhead_mb = var.jvm_overhead_mb
   backup_s3       = var.backup_s3
 
