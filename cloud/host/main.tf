@@ -68,6 +68,20 @@ resource "digitalocean_firewall" "mc" {
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
 
+  # Pelican Panel. 80 is not optional even though the panel serves on 443 --
+  # Caddy needs it for the Let's Encrypt HTTP-01 challenge, and redirects it.
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "80"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
+  inbound_rule {
+    protocol         = "tcp"
+    port_range       = "443"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
   inbound_rule {
     protocol         = "icmp"
     source_addresses = ["0.0.0.0/0", "::/0"]
