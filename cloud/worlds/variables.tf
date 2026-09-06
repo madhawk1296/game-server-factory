@@ -54,8 +54,22 @@ variable "backup_s3" {
 }
 
 variable "jvm_overhead_mb" {
-  type    = number
-  default = 768
+  description = <<-EOT
+    RAM reserved above the heap, per world. Heap = memory_mb - this.
+
+    Higher here than the local default of 768, and the difference is a real
+    finding rather than caution. v1.1 measured ~440 MB of non-heap RSS at both a
+    4096 MB and a 2457 MB heap and concluded the cost was fixed. With uptime and
+    a 4352 MB heap it reached 693 MB -- so part of it does scale with heap (G1's
+    remembered sets and card table), it was just small enough to hide at the
+    sizes originally tested.
+
+    768 left this world at 98.5% of its ceiling, roughly 75 MB from an OOM kill
+    -- which is a hard kill, so no flush and up to an autosave interval lost.
+    Large heaps need the bigger reserve; small ones do not.
+  EOT
+  type        = number
+  default     = 1024
 }
 
 variable "backup_interval" {
