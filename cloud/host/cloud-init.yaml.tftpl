@@ -63,13 +63,21 @@ write_files:
       # otherwise delete every customer's world and the node's own credentials,
       # while Docker's data sat safely on the volume beside them.
       mkdir -p /mnt/docker/pelican-volumes /mnt/docker/pelican-config
+      mkdir -p /mnt/docker/pelican-backups /mnt/docker/pelican-archives
       mkdir -p /var/lib/pelican/volumes /etc/pelican
+      mkdir -p /var/lib/pelican/backups /var/lib/pelican/archives
       grep -q " /var/lib/pelican/volumes " /etc/fstab || \
         echo "/mnt/docker/pelican-volumes /var/lib/pelican/volumes none bind 0 0" >> /etc/fstab
       grep -q " /etc/pelican " /etc/fstab || \
         echo "/mnt/docker/pelican-config /etc/pelican none bind 0 0" >> /etc/fstab
+      grep -q " /var/lib/pelican/backups " /etc/fstab || \
+        echo "/mnt/docker/pelican-backups /var/lib/pelican/backups none bind 0 0" >> /etc/fstab
+      grep -q " /var/lib/pelican/archives " /etc/fstab || \
+        echo "/mnt/docker/pelican-archives /var/lib/pelican/archives none bind 0 0" >> /etc/fstab
       findmnt -n /var/lib/pelican/volumes >/dev/null 2>&1 || mount /var/lib/pelican/volumes
       findmnt -n /etc/pelican >/dev/null 2>&1 || mount /etc/pelican
+      findmnt -n /var/lib/pelican/backups >/dev/null 2>&1 || mount /var/lib/pelican/backups
+      findmnt -n /var/lib/pelican/archives >/dev/null 2>&1 || mount /var/lib/pelican/archives
 
       findmnt -n /mnt/docker
 
