@@ -75,6 +75,25 @@ Connect directly at `localhost:25566`, or through the router at
 127.0.0.1  smp.mc.localhost creative.mc.localhost
 ```
 
+### Paymenter
+
+The storefront. Reached at the apex over HTTPS; the same hostname on 25565 is
+the flagship game server.
+
+Two things that are not obvious:
+
+**Paymenter keeps its URL in the database, not the environment.** APP_URL only
+seeds an initial value, and on first boot the seeder wrote the framework default
+`http://localhost` regardless -- so every generated link, including the login
+redirect, pointed at localhost while `printenv` and `env()` both looked correct.
+Fixed in the `settings` table under key `app_url`. Worth checking there first
+whenever a URL looks wrong, rather than in the container environment.
+
+**There is no web installer.** Migrations run on first boot and setup happens at
+/admin, which is Filament. The admin user comes from
+`php artisan app:user:create <first> <last> <email> <password> <role_id>` --
+role_id is an integer, so passing "admin" fails on an integer column.
+
 ### Backups
 
 Backups go to object storage via restic -- deduplicated, encrypted client-side,
@@ -118,6 +137,25 @@ docker exec mc-smp-backup restic restore latest --target /tmp/r
 
 Restore has been tested, not assumed: a snapshot restored 401 files including
 `level.dat` and the region files. An untested backup is not a backup.
+
+### Paymenter
+
+The storefront. Reached at the apex over HTTPS; the same hostname on 25565 is
+the flagship game server.
+
+Two things that are not obvious:
+
+**Paymenter keeps its URL in the database, not the environment.** APP_URL only
+seeds an initial value, and on first boot the seeder wrote the framework default
+`http://localhost` regardless -- so every generated link, including the login
+redirect, pointed at localhost while `printenv` and `env()` both looked correct.
+Fixed in the `settings` table under key `app_url`. Worth checking there first
+whenever a URL looks wrong, rather than in the container environment.
+
+**There is no web installer.** Migrations run on first boot and setup happens at
+/admin, which is Filament. The admin user comes from
+`php artisan app:user:create <first> <last> <email> <password> <role_id>` --
+role_id is an integer, so passing "admin" fails on an integer column.
 
 ### Backups
 
