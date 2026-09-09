@@ -75,6 +75,29 @@ Connect directly at `localhost:25566`, or through the router at
 127.0.0.1  smp.mc.localhost creative.mc.localhost
 ```
 
+### Pricing
+
+Four plans, all Paper on node-1 with daily backups kept 7 days:
+
+| Plan | RAM | Disk | Monthly | Yearly | $/GB |
+|---|---|---|---|---|---|
+| Dirt | 2 GB | 10 GB | $6 | $61.20 | 3.00 |
+| Iron | 4 GB | 20 GB | $10 | $102.00 | 2.50 |
+| Diamond | 8 GB | 40 GB | $18 | $183.60 | 2.25 |
+| Netherite | 12 GB | 60 GB | $26 | $265.20 | 2.17 |
+
+Priced against the market rather than against the bill, because the bill cannot
+be covered here. The droplet costs $51/month and yields about 4.8 GB of sellable
+memory once the panel, Paymenter, MariaDB, Redis, Wings and the OS are
+subtracted -- roughly **$10.60 per sellable GB** against a market rate of
+$2-5/GB. There is no price that both covers this box and sells.
+
+A 64 GB dedicated server at around $115/month leaves ~54 GB sellable, or about
+$2.13/GB, at which these same prices carry margin and break even near 60%
+occupancy. So the box is the proving ground; the move to bare metal is what
+makes the numbers work, and it should happen before the losses scale with
+success rather than after.
+
 ### Paymenter
 
 The storefront. Reached at the apex over HTTPS; the same hostname on 25565 is
@@ -137,6 +160,29 @@ docker exec mc-smp-backup restic restore latest --target /tmp/r
 
 Restore has been tested, not assumed: a snapshot restored 401 files including
 `level.dat` and the region files. An untested backup is not a backup.
+
+### Pricing
+
+Four plans, all Paper on node-1 with daily backups kept 7 days:
+
+| Plan | RAM | Disk | Monthly | Yearly | $/GB |
+|---|---|---|---|---|---|
+| Dirt | 2 GB | 10 GB | $6 | $61.20 | 3.00 |
+| Iron | 4 GB | 20 GB | $10 | $102.00 | 2.50 |
+| Diamond | 8 GB | 40 GB | $18 | $183.60 | 2.25 |
+| Netherite | 12 GB | 60 GB | $26 | $265.20 | 2.17 |
+
+Priced against the market rather than against the bill, because the bill cannot
+be covered here. The droplet costs $51/month and yields about 4.8 GB of sellable
+memory once the panel, Paymenter, MariaDB, Redis, Wings and the OS are
+subtracted -- roughly **$10.60 per sellable GB** against a market rate of
+$2-5/GB. There is no price that both covers this box and sells.
+
+A 64 GB dedicated server at around $115/month leaves ~54 GB sellable, or about
+$2.13/GB, at which these same prices carry margin and break even near 60%
+occupancy. So the box is the proving ground; the move to bare metal is what
+makes the numbers work, and it should happen before the losses scale with
+success rather than after.
 
 ### Paymenter
 
