@@ -64,10 +64,11 @@ resource "digitalocean_firewall" "mc" {
     source_addresses = local.ssh_allowed
   }
 
-  # The router's single port. Individual worlds are never published.
+  # The node's allocation pool. Every port Pelican can hand to a server has to
+  # be reachable, or provisioning succeeds and the customer still cannot connect.
   inbound_rule {
     protocol         = "tcp"
-    port_range       = "25565"
+    port_range       = var.game_port_range
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
 

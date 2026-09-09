@@ -75,6 +75,36 @@ Connect directly at `localhost:25566`, or through the router at
 127.0.0.1  smp.mc.localhost creative.mc.localhost
 ```
 
+### Provisioning, end to end
+
+An order placed in Paymenter creates a Pelican user, a server, an allocation,
+installs the game and starts it -- verified by placing an admin order and
+connecting to the result from the internet. No payment gateway is involved in
+that path, which is why it could be tested before Stripe existed.
+
+Getting there found six faults, each of which would have reached the first
+paying customer:
+
+1. **Disk exhaustion.** The node had 15 GB and the existing server reserved 10 GB
+   while using 18 MB, so a 10 GB plan could not deploy. Memory was fine; disk was
+   the binding constraint, and the error said only "node is not suitable".
+2. **Stale allocations.** Mothballing changed the reserved IP, but allocation
+   records still named the old address. DNS was managed in code and updated
+   itself; the allocation table was not, and did not. Allocations should be
+   created on 0.0.0.0, which binds whatever the host currently has.
+3. **Allocation hoarding.** All eleven ports were bound to the first server, so
+   provisioning had nothing free and fell back to a stale record.
+4. **EULA not accepted.** The egg writes eula.txt but does not agree to it, so
+   every provisioned server starts and immediately exits.
+5. **MaxRAMPercentage=95 in the egg.** Fixed once by hand on a single server,
+   which fixed nothing -- every new server inherited 95 again. Configuration
+   belongs at the template, not the instance.
+6. **Firewall only allowed 25565.** The allocation pool spanned 25565-25575, so
+   ten of eleven ports would provision cleanly and then be unreachable.
+
+Four of the six were invisible until a server was actually created and connected
+to. Reading the code would not have surfaced any of them.
+
 ### Pricing
 
 Four plans, all Paper on node-1 with daily backups kept 7 days:
@@ -160,6 +190,36 @@ docker exec mc-smp-backup restic restore latest --target /tmp/r
 
 Restore has been tested, not assumed: a snapshot restored 401 files including
 `level.dat` and the region files. An untested backup is not a backup.
+
+### Provisioning, end to end
+
+An order placed in Paymenter creates a Pelican user, a server, an allocation,
+installs the game and starts it -- verified by placing an admin order and
+connecting to the result from the internet. No payment gateway is involved in
+that path, which is why it could be tested before Stripe existed.
+
+Getting there found six faults, each of which would have reached the first
+paying customer:
+
+1. **Disk exhaustion.** The node had 15 GB and the existing server reserved 10 GB
+   while using 18 MB, so a 10 GB plan could not deploy. Memory was fine; disk was
+   the binding constraint, and the error said only "node is not suitable".
+2. **Stale allocations.** Mothballing changed the reserved IP, but allocation
+   records still named the old address. DNS was managed in code and updated
+   itself; the allocation table was not, and did not. Allocations should be
+   created on 0.0.0.0, which binds whatever the host currently has.
+3. **Allocation hoarding.** All eleven ports were bound to the first server, so
+   provisioning had nothing free and fell back to a stale record.
+4. **EULA not accepted.** The egg writes eula.txt but does not agree to it, so
+   every provisioned server starts and immediately exits.
+5. **MaxRAMPercentage=95 in the egg.** Fixed once by hand on a single server,
+   which fixed nothing -- every new server inherited 95 again. Configuration
+   belongs at the template, not the instance.
+6. **Firewall only allowed 25565.** The allocation pool spanned 25565-25575, so
+   ten of eleven ports would provision cleanly and then be unreachable.
+
+Four of the six were invisible until a server was actually created and connected
+to. Reading the code would not have surfaced any of them.
 
 ### Pricing
 

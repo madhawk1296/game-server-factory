@@ -119,3 +119,13 @@ variable "store_port" {
   type        = number
   default     = 8081
 }
+
+variable "game_port_range" {
+  description = <<-EOT
+    Ports open for game servers. Must cover the node's allocation pool in
+    Pelican -- an allocation the firewall does not permit produces a server that
+    provisions cleanly and then cannot be reached.
+  EOT
+  type        = string
+  default     = "25565-25575"
+}
