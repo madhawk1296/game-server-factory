@@ -1,0 +1,17 @@
+# Terraform working directories and provider binaries -- large, platform
+# specific, and reproducible from the lockfile.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Variable files hold credentials. Examples are committed; real ones are not.
+terraform.tfvars
+*.auto.tfvars
+!terraform.tfvars.example
+
+# Local backup artefacts
+local/backups/
+
+.DS_Store
