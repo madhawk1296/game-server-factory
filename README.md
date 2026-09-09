@@ -119,6 +119,37 @@ docker exec mc-smp-backup restic restore latest --target /tmp/r
 Restore has been tested, not assumed: a snapshot restored 401 files including
 `level.dat` and the region files. An untested backup is not a backup.
 
+### Backups
+
+Backups go to Cloudflare R2 over the S3 API. Wings uploads directly from the
+node using a presigned URL, so backup data never transits the panel and each
+node talks to object storage on its own.
+
+R2 rather than DigitalOcean Spaces deliberately: backups should not share a
+failure domain with the thing they protect. A DO incident, or an account
+suspension over some customer's server, would otherwise take the node and every
+backup together. R2 is free under 10 GB -- roughly the first four customers --
+and has no egress charges, which matters because you pay to restore on the day
+you are already having a bad one.
+
+Configuration lives in Pelican, not Terraform:
+
+- Backup host `R2`, schema `s3`, attached to the node rather than to a server,
+  so every server on it inherits the setting. There is no per-server field to
+  forget when provisioning.
+- Per-server `backup_limit` of 7, with a daily schedule at 04:00. Daily-keep-7
+  beats hourly-keep-3 for Minecraft: the disaster is "griefed last night", so
+  you want yesterday rather than fine granularity and nothing older.
+- Verified by triggering one and confirming it left the box -- Wings logs an
+  s3 multipart upload and /var/lib/pelican/backups stays empty. A backup that
+  lands locally looks identical in the panel.
+
+Two things measured while setting this up. Pelican sizes the container above the
+memory you sell, by a tiered overhead -- 10% at 3072 MB, 5% at 5120 -- so a
+3 GB plan gets a 3379 MB container. And Pelican starts the JVM with Xms128M and
+lets the heap grow, rather than committing it at boot, so idle servers cost a
+fraction of their allocation.
+
 ### Layout
 
 ```
