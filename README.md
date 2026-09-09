@@ -155,9 +155,22 @@ fraction of their allocation.
 ```
 cloud/host     the node: droplet, volume, firewall, reserved IP, DNS, cloud-init
 cloud/panel    Pelican Panel as a container
+cloud/billing  Paymenter, MariaDB and Redis -- the storefront
 modules/worlds local development only -- superseded on the cloud by Pelican
 local          the local stack, still useful as a sandbox
 ```
+
+One host serves three things on three ports, all behind the panel's Caddy:
+
+```
+cheapminecraftservers.com        :443    the shop
+cheapminecraftservers.com        :25565  the flagship game server
+panel.cheapminecraftservers.com  :443    Pelican
+node.cheapminecraftservers.com   :443    Wings, proxied
+```
+
+The apex answering as both a website and a Minecraft server is not a trick --
+they are different ports, and a client only ever tries one of them.
 
 Terraform provisions nodes; Pelican schedules game servers onto them. The
 pre-migration world is retained on the node in three places -- the mc-smp-data

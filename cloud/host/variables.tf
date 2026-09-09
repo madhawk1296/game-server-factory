@@ -113,3 +113,9 @@ variable "node_hostname" {
   type        = string
   default     = "node.cheapminecraftservers.com"
 }
+
+variable "store_port" {
+  description = "Host port Paymenter listens on, proxied by Caddy from the apex."
+  type        = number
+  default     = 8081
+}

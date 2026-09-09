@@ -44,6 +44,8 @@ resource "digitalocean_droplet" "host" {
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     volume_device = local.volume_device
     node_hostname = var.node_hostname
+    domain        = var.domain
+    store_port    = var.store_port
   })
 }
 
@@ -156,6 +158,13 @@ resource "digitalocean_monitor_alert" "memory" {
   enabled     = true
   entities    = [digitalocean_droplet.host.id]
   description = "${var.name}: memory above 90%"
+
+  # DigitalOcean deletes an alert when the droplet it targets is deleted, so a
+  # rebuild leaves Terraform holding a reference to something gone -- it then
+  # tries to PUT an update and gets a 404. Recreate them with the droplet.
+  lifecycle {
+    replace_triggered_by = [digitalocean_droplet.host]
+  }
 }
 
 resource "digitalocean_monitor_alert" "disk" {
@@ -168,6 +177,13 @@ resource "digitalocean_monitor_alert" "disk" {
   enabled     = true
   entities    = [digitalocean_droplet.host.id]
   description = "${var.name}: disk above 80%"
+
+  # DigitalOcean deletes an alert when the droplet it targets is deleted, so a
+  # rebuild leaves Terraform holding a reference to something gone -- it then
+  # tries to PUT an update and gets a 404. Recreate them with the droplet.
+  lifecycle {
+    replace_triggered_by = [digitalocean_droplet.host]
+  }
 }
 
 # A ten minute window rather than five: chunk generation spikes CPU hard and
@@ -182,6 +198,13 @@ resource "digitalocean_monitor_alert" "cpu" {
   enabled     = true
   entities    = [digitalocean_droplet.host.id]
   description = "${var.name}: CPU above 90% sustained"
+
+  # DigitalOcean deletes an alert when the droplet it targets is deleted, so a
+  # rebuild leaves Terraform holding a reference to something gone -- it then
+  # tries to PUT an update and gets a 404. Recreate them with the droplet.
+  lifecycle {
+    replace_triggered_by = [digitalocean_droplet.host]
+  }
 }
 
 # The wildcard does not cover the bare domain. An apex record means the flagship

@@ -125,6 +125,13 @@ write_files:
       	reverse_proxy host.docker.internal:8080
       }
 
+      # The storefront on the apex. A browser hitting the bare domain gets the
+      # shop; a Minecraft client hitting the same name gets the flagship server
+      # on 25565. Different ports, one hostname.
+      https://${domain}, https://www.${domain} {
+      	reverse_proxy host.docker.internal:${store_port}
+      }
+
   - path: /etc/systemd/system/wings.service
     permissions: "0644"
     content: |
