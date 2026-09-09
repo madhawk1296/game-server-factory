@@ -1,5 +1,7 @@
 # Game Server Factory
 
+[![ci](https://github.com/madhawk1296/game-server-factory/actions/workflows/ci.yml/badge.svg)](https://github.com/madhawk1296/game-server-factory/actions/workflows/ci.yml)
+
 Automated Minecraft server hosting. A customer picks a plan, and a working,
 internet-reachable game server exists a few minutes later without anyone
 touching it.
