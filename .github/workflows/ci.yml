@@ -68,6 +68,11 @@ jobs:
 
       - name: Acceptance suite
         working-directory: local
+        env:
+          # The stack was applied with ci.tfvars, so the suite must plan against
+          # the same variables or its drift check compares against a different
+          # configuration than the one running.
+          TFVARS: ci.tfvars
         run: ./test.sh
 
       - name: Container logs on failure

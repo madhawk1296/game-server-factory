@@ -5,6 +5,11 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 
+# The suite has to plan and apply against whatever variables the stack was
+# created with. Set TFVARS=ci.tfvars (or similar) when the stack is not using
+# the defaults, or the drift check plans a different configuration entirely.
+TFV=${TFVARS:+-var-file=$TFVARS}
+
 PASS=0; FAIL=0
 ok()   { printf "  \033[32mPASS\033[0m  %s\n" "$1"; PASS=$((PASS+1)); }
 bad()  { printf "  \033[31mFAIL\033[0m  %s\n" "$1"; FAIL=$((FAIL+1)); }
@@ -43,7 +48,7 @@ for w in smp creative; do
 done
 
 head_ "Config matches reality"
-if terraform plan -detailed-exitcode -no-color >/dev/null 2>&1; then
+if terraform plan -detailed-exitcode -no-color $TFV >/dev/null 2>&1; then
   ok "no drift between config and running infrastructure"
 else
   [ $? -eq 2 ] && bad "terraform plan shows pending changes" || bad "terraform plan errored"
@@ -113,7 +118,7 @@ if [ "${1:-}" = "--full" ]; then
   head_ "Server is disposable (v0)"
   docker exec -i mc-smp rcon-cli setblock 0 101 0 minecraft:emerald_block >/dev/null
   old=$(docker inspect -f '{{.Id}}' mc-smp)
-  terraform apply -replace='module.worlds.docker_container.mc["smp"]' -auto-approve -no-color >/dev/null 2>&1
+  terraform apply -replace='module.worlds.docker_container.mc["smp"]' -auto-approve -no-color $TFV >/dev/null 2>&1
   for _ in $(seq 1 60); do docker logs mc-smp 2>&1 | grep -q 'Done (' && break; sleep 3; done
   new=$(docker inspect -f '{{.Id}}' mc-smp)
   if [ "$old" != "$new" ]; then
@@ -132,7 +137,7 @@ if [ "${1:-}" = "--full" ]; then
 
   sed -i '' 's/^    creative = {$/    creative = {\
       state      = "stopped"/' variables.tf
-  terraform apply -auto-approve -no-color >/dev/null 2>&1
+  terraform apply -auto-approve -no-color $TFV >/dev/null 2>&1
 
   gone=$(docker ps -q --filter "name=^mc-creative$" | wc -l | tr -d ' ')
   vol=$(docker volume ls -q --filter name=mc-creative-data | wc -l | tr -d ' ')
@@ -142,7 +147,7 @@ if [ "${1:-}" = "--full" ]; then
   check "stopped: smp unaffected"    "$(ping_motd smp.mc.localhost 25565)"      "Survival"
 
   cp .variables.tf.bak variables.tf; rm -f .variables.tf.bak; trap - EXIT
-  terraform apply -auto-approve -no-color >/dev/null 2>&1
+  terraform apply -auto-approve -no-color $TFV >/dev/null 2>&1
   for _ in $(seq 1 60); do docker logs mc-creative 2>&1 | grep -q 'Done (' && break; sleep 3; done
   docker exec -i mc-creative rcon-cli forceload add 0 0 >/dev/null 2>&1
   check "restarted: world data survived" \
