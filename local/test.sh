@@ -66,6 +66,9 @@ done
 head_ "Worlds are isolated (v1.2)"
 docker exec -i mc-smp      rcon-cli forceload add 0 0 >/dev/null 2>&1
 docker exec -i mc-creative rcon-cli forceload add 0 0 >/dev/null 2>&1
+# Place the marker rather than assuming one exists, so this runs against a
+# freshly created stack and not just a long-lived one.
+docker exec -i mc-smp rcon-cli setblock 0 100 0 minecraft:gold_block >/dev/null 2>&1
 a=$(docker exec -i mc-smp      rcon-cli execute if block 0 100 0 minecraft:gold_block 2>/dev/null)
 b=$(docker exec -i mc-creative rcon-cli execute if block 0 100 0 minecraft:gold_block 2>/dev/null)
 check "gold block present in smp"     "$a" "Test passed"
@@ -84,8 +87,15 @@ check "smp published on 25566"    "$(ping_motd localhost 25566)" "Survival"
 check "creative not published"    "$(ping_motd localhost 25567)" "REFUSED"
 
 head_ "Backups exist and restore (v1.6)"
+# The sidecar waits out its initial delay before the first snapshot, so give it
+# a window instead of racing it.
 for w in smp creative; do
-  n=$(docker exec "mc-$w-backup" restic snapshots 2>/dev/null | grep -cE '^[0-9a-f]{8} ')
+  n=0
+  for _ in $(seq 1 40); do
+    n=$(docker exec "mc-$w-backup" restic snapshots 2>/dev/null | grep -cE '^[0-9a-f]{8} ')
+    [ "${n:-0}" -ge 1 ] && break
+    sleep 5
+  done
   [ "${n:-0}" -ge 1 ] && ok "$w has $n restic snapshot(s)" || bad "$w has no snapshots"
 done
 if docker exec mc-minio sh -c 'grep -rql "level.dat" /data/mc-backups 2>/dev/null | head -1' | grep -q .; then

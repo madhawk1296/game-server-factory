@@ -410,20 +410,24 @@ cd local
 ./test.sh --full   # 28 checks, including a container replace and a stop/start cycle
 ```
 
-`--full` deliberately mutates: it replaces smp's container to prove the world
-survives, and edits `variables.tf` to stop and restart creative, restoring the
-file afterwards via a trap. Do not run it while anyone is playing.
+The suite is self-contained -- it places its own world marker and waits for the
+first backup rather than assuming a long-lived stack -- so it runs against a
+freshly created environment as happily as an established one.
 
-What it cannot check is the part that needs a human: that two clients on two
-worlds genuinely cannot see each other, and that the routed hostnames work in
-the real launcher rather than only in the protocol prober. For that:
+**CI** (`.github/workflows/ci.yml`) runs two jobs on every push:
 
-```bash
-echo "$(cd local && terraform output -raw etc_hosts_line)" | sudo tee -a /etc/hosts
-```
+- **static** -- `terraform fmt -check` and `validate` across all five roots,
+  including the cloud ones. Those can only be validated, never applied: an apply
+  would need credentials and would create billable infrastructure per push.
+- **acceptance suite** -- stands the local stack up on real Docker inside the
+  runner and runs the same 21 checks. Isolation, hostname routing, enforced
+  memory limits, and a restored backup, verified on every change rather than
+  when someone notices.
 
-Then add both `smp.mc.localhost` and `creative.mc.localhost` in Minecraft --
-no port -- and confirm you arrive in different worlds with separate inventories.
+CI uses `local/ci.tfvars`: two 1536 MB worlds instead of 3072 and 2048, because
+runners have about 7 GB. 1536 is close to the floor the module's own
+precondition allows -- `memory_mb` must exceed `jvm_overhead_mb` by 512 -- which
+leaves a 768 MB heap, enough for Paper to boot with nobody on it.
 
 ### World lifecycle and decommissioning
 

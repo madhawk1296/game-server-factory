@@ -1,0 +1,91 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # Cheap and fast: catches formatting drift and invalid HCL in every root,
+  # including the cloud ones, which cannot be applied here without creating
+  # billable infrastructure.
+  static:
+    name: fmt and validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: terraform validate
+        run: |
+          for dir in local cloud/host cloud/panel cloud/billing modules/worlds; do
+            echo "::group::$dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+            echo "::endgroup::"
+          done
+
+  # The part worth having: stands the local stack up on real Docker and asserts
+  # behaviour -- isolation, hostname routing, enforced memory limits, and a
+  # backup that actually restores. Cloud roots are excluded deliberately; they
+  # would need credentials and would cost money per run.
+  integration:
+    name: acceptance suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.0
+          terraform_wrapper: false
+
+      - name: Show runner capacity
+        run: |
+          free -m | awk '/Mem:/{printf "memory: %d MB\n", $2}'
+          docker --version
+
+      - name: Pull images ahead of time
+        run: |
+          docker pull -q itzg/minecraft-server:latest
+          docker pull -q itzg/mc-backup:latest
+          docker pull -q itzg/mc-router:latest
+          docker pull -q minio/minio:latest
+          docker pull -q minio/mc:latest
+
+      - name: Stand up the stack
+        working-directory: local
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -input=false -var-file=ci.tfvars
+
+      - name: Acceptance suite
+        working-directory: local
+        run: ./test.sh
+
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          for c in $(docker ps -a --format '{{.Names}}'); do
+            echo "::group::$c"
+            docker logs --tail 80 "$c" 2>&1 || true
+            echo "::endgroup::"
+          done
+
+      - name: Tear down
+        if: always()
+        working-directory: local
+        run: |
+          # prevent_destroy guards the world volumes, so drop the containers and
+          # let the runner evaporate with everything else.
+          terraform destroy -auto-approve -input=false -var-file=ci.tfvars \
+            -target='module.worlds.docker_container.mc' \
+            -target='module.worlds.docker_container.backup' \
+            -target='module.worlds.docker_container.router' || true
