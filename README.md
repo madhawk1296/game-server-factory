@@ -201,6 +201,14 @@ from ~$50/month to $2. Everything restores with terraform apply -- the world, th
 panel's database, the storefront's products, and the node's identity all live on
 the volume. The IP changes and nothing cares, because DNS is managed in code.
 
+**Shutting a stack down means targeting containers, not running destroy.** A
+bare terraform destroy aborts on the volumes' prevent_destroy and stops nothing,
+so the stack is left fully running. The targets have to be individual container
+instances: an un-indexed resource address expands to the volumes too, and
+targeting anything the worlds module depends on -- the object store, say --
+pulls the volumes in as dependents, because destroy targets take their
+dependents with them. Both variants fail the same way, with everything still up.
+
 **Deleting a world is deliberately not a config edit.** Volumes carry
 prevent_destroy, which Terraform requires to be a literal, so it cannot be
 relaxed per world. Removing a map entry therefore aborts the whole plan rather
